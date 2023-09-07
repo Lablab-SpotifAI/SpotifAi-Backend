@@ -1,14 +1,17 @@
-from typing import Union
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 import openai
-import os
 import uvicorn
 import json
+from elevenlabs import generate, save, set_api_key
+from dotenv import load_dotenv
+import os
 
-
+load_dotenv()
 app = FastAPI()
-openai.api_key=""
+openai.api_key=os.environ.get("OPENAI_API_KEY")
 messages = list()
+set_api_key("")
 
 
 @app.get("/")
@@ -25,6 +28,7 @@ def create_message(role: str, content: str):
 async def text2script(text: str):
     if text == '':
         return {
+            'statusCode': 500,
             "message": "Text Required"
         }
     
@@ -68,12 +72,21 @@ async def text2script(text: str):
             'message': str(e)
         }
 
+@app.get("/script2audio")
 async def script2audio(script: str):
     if script == '':
         return {
+            'statusCode': 500,
             "message": "Script Required"
         }
     
+    save(generate(text=script,
+                    voice="Readwell",
+                    model="eleven_monolingual_v1"),
+        "audio.wav")
+    
+    audio_path = "audio.wav"
+    return FileResponse(audio_path, media_type="audio/wav")
 
 if __name__=="__main__":
     uvicorn.run(app,host="127.0.0.1",port=8000)
