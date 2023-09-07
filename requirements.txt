@@ -1,0 +1,5 @@
+elevenlabs==0.2.24
+fastapi==0.103.1
+openai==0.28.0
+python-dotenv==1.0.0
+uvicorn==0.23.2
