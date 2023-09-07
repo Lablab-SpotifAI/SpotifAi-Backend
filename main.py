@@ -11,7 +11,7 @@ load_dotenv()
 app = FastAPI()
 openai.api_key=os.environ.get("OPENAI_API_KEY")
 messages = list()
-set_api_key("")
+set_api_key(os.environ.get("XI_API_KEY"))
 
 
 @app.get("/")
