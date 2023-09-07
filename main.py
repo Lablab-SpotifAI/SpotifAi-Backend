@@ -7,7 +7,7 @@ import json
 
 
 app = FastAPI()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key=""
 messages = list()
 
 
@@ -28,22 +28,32 @@ async def text2script(text: str):
             "message": "Text Required"
         }
     
-    starting_prompt = '''I want you to give me a podcast script from the following text.
-                        The podcast script should be long and should have many informations.
-                        You should write a podcast script that will respect the directives given in the following text'''
+    starting_prompt = '''You are a professional writer specializing in writing podcast scripts.
+                        I will tell you what is the subject that I want and you will give me an entertaining script to use.
+                        You will make sure there are no placeholders or fields to replace.
+                        You can imagine the hosts's name and other personal information.
+                        You will have to stick to the subject of the podcast.'''
     
     if len(messages) == 0:
         messages.append(create_message("system", starting_prompt))
 
     try:
+        messages.append(create_message('user', text))
         completion_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            max_tokens=5000
+            max_tokens=2000,
+            temperature=1
         )
 
+        script = completion_response.choices[0].message
+        print(script)
+
+        print('all response')
+        print(completion_response)
+
         idea_script = {'idea': text,
-                    'script': completion_response.choices[0].message
+                    'script': script
         }
 
         return {
@@ -53,9 +63,9 @@ async def text2script(text: str):
         }
     
     except Exception as e:
-        print(e)
         return {
-            "message" : "Server Error"
+            'statusCode': 500,
+            'message': str(e)
         }
 
 async def script2audio(script: str):
@@ -64,12 +74,6 @@ async def script2audio(script: str):
             "message": "Script Required"
         }
     
-    
-
-    
-
-
-
 
 if __name__=="__main__":
-    uvicorn.run(app,host="0.0.0.0",port=8000)
+    uvicorn.run(app,host="127.0.0.1",port=8000)
