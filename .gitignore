@@ -2,4 +2,3 @@ __pycache__
 sandbox.py
 apikey_test.py
 .env
-.gitignore
