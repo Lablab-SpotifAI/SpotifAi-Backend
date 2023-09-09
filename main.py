@@ -35,7 +35,7 @@ def clean_script(script: str):
     return script
 
 #@app.get("/text2script")
-async def text2script(text: str, gender: str):
+async def text2script(text: str):
     if text == '':
         return {
             'statusCode': 500,
@@ -60,7 +60,7 @@ async def text2script(text: str, gender: str):
     if len(messages) == 0:
         messages.append(create_message("system", starting_prompt))
     
-    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is "+str(gender)
+    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is male"
 
     try:
         
@@ -73,10 +73,10 @@ async def text2script(text: str, gender: str):
         )
 
         script = completion_response.choices[0].message.content
-        print("Original Script:\n"+script)
+        #print("Original Script:\n"+script)
         script = clean_script(script)
         #For debugging
-        print(script)
+        #print(script)
         #print('all response')
         #print(completion_response)
 
@@ -96,17 +96,15 @@ async def text2script(text: str, gender: str):
         return "There is an exception: "+str(e)
 
 #@app.get("/script2audio")
-async def script2audio(script: str, gender:str):
+async def script2audio(script: str):
     if script == '':
         return {
             'statusCode': 500,
             "message": "Script Required"
         }
     
-    voice = "Readwell" if gender=='male' else "Anya"
-    
     generated_audio = generate(text=script[:200],
-                    voice=voice,
+                    voice="Readwell",
                     model="eleven_monolingual_v1")
     save(generated_audio, "audio.wav")
     
@@ -117,10 +115,10 @@ async def script2audio(script: str, gender:str):
 
 
 @app.post('/generate')
-async def generate_podcast(text: str, gender: str):
-    script_toread = await text2script(text, gender)
+async def generate_podcast(text: str):
+    script_toread = await text2script(text)
     assert isinstance(script_toread, str)
-    response = await script2audio(script_toread, gender)
+    response = await script2audio(script_toread)
     return response
 
 
