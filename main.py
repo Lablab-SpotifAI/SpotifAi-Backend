@@ -10,7 +10,7 @@ import os
 load_dotenv()
 app = FastAPI()
 openai.api_key=os.environ.get("OPENAI_API_KEY")
-openai.organization=os.environ.get("OPENAI_ORG_KEY")
+openai.organization=os.environ.get("OPENAI_ORG")
 messages = list()
 set_api_key(os.environ.get("XI_API_KEY"))
 
@@ -38,7 +38,7 @@ def duration2tokenswords(duration_min: int):
     return words, tokens
 
 
-@app.get("/text2script")
+#@app.get("/text2script")
 async def text2script(text: str, duration: int, gender: str):
     if text == '':
         return {
@@ -68,7 +68,7 @@ async def text2script(text: str, duration: int, gender: str):
     try:
         
         messages.append(create_message('user', text+details_prompt))
-        completion_response = openai.ChatCompletion.create(
+        completion_response = await openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
             max_tokens=tokens,
@@ -86,11 +86,13 @@ async def text2script(text: str, duration: int, gender: str):
                     'script': script
         }
 
-        return {
+        return script
+
+        '''return {
             'statusCode': 200,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps(idea_script)
-        }
+        }'''
     
     except Exception as e:
         return {
@@ -98,7 +100,7 @@ async def text2script(text: str, duration: int, gender: str):
             'message': str(e)
         }
 
-@app.get("/script2audio")
+#@app.get("/script2audio")
 async def script2audio(script: str, gender:str):
     if script == '':
         return {
@@ -107,13 +109,20 @@ async def script2audio(script: str, gender:str):
         }
     
     voice = "Readwell" if gender=='male' else "Anya"
-    save(generate(text=script,
+    await save(generate(text=script,
                     voice=voice,
                     model="eleven_monolingual_v1"),
         "audio.wav")
     
     audio_path = "audio.wav"
     return FileResponse(audio_path, media_type="audio/wav")
+
+
+@app.get('/generate')
+def generate_podcast(text: str, duration: int, gender: str):
+    script = text2script(text, duration, gender)
+    return script2audio(script, gender)
+
 
 
 if __name__=="__main__":
