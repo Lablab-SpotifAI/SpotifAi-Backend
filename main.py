@@ -6,40 +6,36 @@ import json
 from elevenlabs import generate, save, set_api_key
 from dotenv import load_dotenv
 import os
+import re
 
 load_dotenv()
 app = FastAPI()
-openai.api_key=os.environ.get("OPENAI_API_KEY")
-openai.organization=os.environ.get("OPENAI_ORG")
+openai.api_key=os.getenv("OPENAI_API_KEY")
+openai.organization=os.getenv("OPENAI_ORG")
 messages = list()
-set_api_key(os.environ.get("XI_API_KEY"))
+set_api_key(os.getenv("XI_API_KEY"))
 
 
 @app.get("/")
 def read_root():
-    return {"message": "LeonardoAI API"}
+    return {"message": "SpotifAi API"}
 
 
 def create_message(role: str, content: str):
     return {"role": role,
             "content": content}
 
-def duration2tokenswords(duration_min: int):
-    #Rates considered for words per minute and words per token
-    wpm_rate=150
-    wpt_rate=0.75
+def clean_script(script: str):
+    pattern = r'\[[^\]]+\]'
+    script = re.sub(pattern, '', script)
+    host_flags = ["Host:", "Speaker:"]
+    for ind in host_flags:
+        script = script.replace(ind, '')
     
-    #Calculate words and tokens and assert they're integers
-    words=duration_min*wpm_rate
-    assert isinstance(words, int)
-    tokens=int(words/wpt_rate)
-    assert isinstance(tokens, int)
-
-    return words, tokens
-
+    return script
 
 #@app.get("/text2script")
-async def text2script(text: str, duration: int, gender: str):
+async def text2script(text: str, gender: str):
     if text == '':
         return {
             'statusCode': 500,
@@ -51,34 +47,36 @@ async def text2script(text: str, duration: int, gender: str):
                         You will make sure there are no placeholders or fields to replace.
                         You can imagine the hosts's name and other personal information.
                         You will have to stick to the subject of the podcast.
-                        Don't put any indicators for music (for example [Upbeat music] or [Starting Song])
+                        Don't put any indicators for music (for example [Upbeat music] or [Opening Music] or [Closing Music])
                         Give me just the actual script of the podcast.
                         The podcast will have only one person who talks.
-                        Don't specify the person who says the script (for example [Host] or [Guest])
+                        Don't specify the person who is talking the script (for example [Host] or [Guest] or [Speaker])
                         I will tell you the number of words I want in the script.
-                        I will also tell you what is the gender of the speaker in the podcast in my prompts.
+                        I will also tell you what is the gender of the speaker in the podcast.
+                        Do not specify any music or sound effects or laughs or coughs or any sound-related detail.
+                        And Do Not mention that the speaker is talking like this: "Speaker:" or "Host:"
                         All the details will be included in my prompt.'''
     
     if len(messages) == 0:
         messages.append(create_message("system", starting_prompt))
     
-    words, tokens = duration2tokenswords(duration)
-    details_prompt = "\nI want the script to be "+str(words)+" long and the reader of the script is a "+str(gender)
+    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is "+str(gender)
 
     try:
         
         messages.append(create_message('user', text+details_prompt))
-        completion_response = await openai.ChatCompletion.create(
+        completion_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            max_tokens=tokens,
+            max_tokens=600,
             temperature=1
         )
 
-        script = completion_response.choices[0].message
-
+        script = completion_response.choices[0].message.content
+        print("Original Script:\n"+script)
+        script = clean_script(script)
         #For debugging
-        #print(script)
+        print(script)
         #print('all response')
         #print(completion_response)
 
@@ -95,10 +93,7 @@ async def text2script(text: str, duration: int, gender: str):
         }'''
     
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'message': str(e)
-        }
+        return "There is an exception: "+str(e)
 
 #@app.get("/script2audio")
 async def script2audio(script: str, gender:str):
@@ -109,19 +104,24 @@ async def script2audio(script: str, gender:str):
         }
     
     voice = "Readwell" if gender=='male' else "Anya"
-    await save(generate(text=script,
+    
+    generated_audio = generate(text=script[:200],
                     voice=voice,
-                    model="eleven_monolingual_v1"),
-        "audio.wav")
+                    model="eleven_monolingual_v1")
+    save(generated_audio, "audio.wav")
     
     audio_path = "audio.wav"
-    return FileResponse(audio_path, media_type="audio/wav")
+    filename = os.path.basename(audio_path)
+    headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
+    return FileResponse(audio_path, headers=headers,media_type="audio/wav")
 
 
-@app.get('/generate')
-def generate_podcast(text: str, duration: int, gender: str):
-    script = text2script(text, duration, gender)
-    return script2audio(script, gender)
+@app.post('/generate')
+async def generate_podcast(text: str, gender: str):
+    script_toread = await text2script(text, gender)
+    assert isinstance(script_toread, str)
+    response = await script2audio(script_toread, gender)
+    return response
 
 
 
