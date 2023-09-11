@@ -111,7 +111,7 @@ async def script2audio(script: str):
     
     try:
         generated_audio = generate(text=script[:200],
-                        voice="Readwell",
+                        voice="Marcus",
                         model="eleven_monolingual_v1")
         save(generated_audio, "audio.wav")
         
