@@ -93,7 +93,7 @@ async def text2script(text: str):
         }'''
     
     except Exception as e:
-        return "There is an exception: "+str(e)
+        return "There is an exception in creating the script:\n"+str(e)
 
 #@app.get("/script2audio")
 async def script2audio(script: str):
@@ -103,15 +103,28 @@ async def script2audio(script: str):
             "message": "Script Required"
         }
     
-    generated_audio = generate(text=script[:200],
-                    voice="Readwell",
-                    model="eleven_monolingual_v1")
-    save(generated_audio, "audio.wav")
+    if script.startswith("There is an exception"):
+        return {
+            'statusCode': 500,
+            "message": script
+        }
     
-    audio_path = "audio.wav"
-    filename = os.path.basename(audio_path)
-    headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
-    return FileResponse(audio_path, headers=headers,media_type="audio/wav")
+    try:
+        generated_audio = generate(text=script[:200],
+                        voice="Readwell",
+                        model="eleven_monolingual_v1")
+        save(generated_audio, "audio.wav")
+        
+        audio_path = "audio.wav"
+        filename = os.path.basename(audio_path)
+        headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
+        return FileResponse(audio_path, headers=headers,media_type="audio/wav")
+    
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            "message": "There was an exception in the audio creation:\n"+str(e)
+        }
 
 
 @app.post('/generate')
