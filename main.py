@@ -60,7 +60,7 @@ async def text2script(text: str):
     if len(messages) == 0:
         messages.append(create_message("system", starting_prompt))
     
-    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is male"
+    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is female"
 
     try:
         
@@ -111,7 +111,7 @@ async def script2audio(script: str):
     
     try:
         generated_audio = generate(text=script[:200],
-                        voice="Marcus",
+                        voice="Bella",
                         model="eleven_monolingual_v1")
         save(generated_audio, "audio.wav")
         
