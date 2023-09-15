@@ -4,3 +4,7 @@ apikey_test.py
 .env
 *.wav
 voices.txt
+polly_sandbox.py
+old_backend.py
+audio.mp3
+first_test.wav

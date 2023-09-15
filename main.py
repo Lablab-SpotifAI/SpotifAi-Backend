@@ -2,18 +2,18 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 import openai
 import uvicorn
-import json
-from elevenlabs import generate, save, set_api_key
 from dotenv import load_dotenv
 import os
 import re
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 load_dotenv()
 app = FastAPI()
 openai.api_key=os.getenv("OPENAI_API_KEY")
 openai.organization=os.getenv("OPENAI_ORG")
+polly = boto3.client('polly')
 messages = list()
-set_api_key(os.getenv("XI_API_KEY"))
 
 
 @app.get("/")
@@ -34,7 +34,6 @@ def clean_script(script: str):
     
     return script
 
-#@app.get("/text2script")
 async def text2script(text: str):
     if text == '':
         return {
@@ -60,7 +59,7 @@ async def text2script(text: str):
     if len(messages) == 0:
         messages.append(create_message("system", starting_prompt))
     
-    details_prompt = "\nI want the script to be no long than 2400 characters long and the reader of the script is female"
+    details_prompt = "\nI want the script to be no long than 100 words long and the reader of the script is female"
 
     try:
         
@@ -68,34 +67,22 @@ async def text2script(text: str):
         completion_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-0613",
             messages=messages,
-            max_tokens=600,
+            max_tokens=300,
             temperature=1
         )
 
         script = completion_response.choices[0].message.content
-        #print("Original Script:\n"+script)
         script = clean_script(script)
-        #For debugging
-        #print(script)
-        #print('all response')
-        #print(completion_response)
 
         idea_script = {'idea': text,
                     'script': script
         }
 
         return script
-
-        '''return {
-            'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps(idea_script)
-        }'''
     
     except Exception as e:
         return "There is an exception in creating the script:\n"+str(e)
 
-#@app.get("/script2audio")
 async def script2audio(script: str):
     if script == '':
         return {
@@ -110,21 +97,50 @@ async def script2audio(script: str):
         }
     
     try:
-        generated_audio = generate(text=script[:200],
-                        voice="Bella",
-                        model="eleven_monolingual_v1")
-        save(generated_audio, "audio.wav")
+        polly = boto3.client('polly')
+        try:
+            response = polly.synthesize_speech(
+                Text=script,
+                OutputFormat="mp3",
+                VoiceId="Joanna")
         
-        audio_path = "audio.wav"
+        except (BotoCoreError, ClientError) as error:
+            print(error)
+            return {
+                'statusCode': 500,
+                "message": "There was a BotoError or ClientError:\n"+str(error)
+            }
+        
+        if "AudioStream" in response:
+            try:
+                with open('audio.mp3', 'wb') as file:
+                    file.write(response['AudioStream'].read())
+                    print("Audio saved as 'output.mp3'")
+            except IOError as error:
+            # Could not write to file, exit gracefully
+                return {
+                'statusCode': 500,
+                "message": "There was a IOError in saving the audio.mp3:\n"+str(error)
+            }
+
+        else:
+            return {
+                'statusCode': 500,
+                "message": "There was a problem in saving the audio.mp3 file"
+            }
+
+        audio_path = "audio.mp3"
         filename = os.path.basename(audio_path)
         headers = {'Content-Disposition': f'attachment; filename="{filename}"'}
-        return FileResponse(audio_path, headers=headers,media_type="audio/wav")
+        return FileResponse(audio_path, headers=headers,media_type="audio/mp3")
     
+
     except Exception as e:
         return {
             'statusCode': 500,
             "message": "There was an exception in the audio creation:\n"+str(e)
         }
+
 
 
 @app.post('/generate')
