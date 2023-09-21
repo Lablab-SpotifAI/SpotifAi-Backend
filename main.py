@@ -12,7 +12,14 @@ load_dotenv()
 app = FastAPI()
 openai.api_key=os.getenv("OPENAI_API_KEY")
 openai.organization=os.getenv("OPENAI_ORG")
-polly = boto3.client('polly')
+aws_access_key_id=os.getenv("AWS_ACCESS_KEY")
+aws_secret_access_key=os.getenv("AWS_SECRET_KEY")
+region=os.getenv("REGION")
+
+polly = boto3.client('polly',
+                    region_name=region,  # Replace with your desired AWS region
+                    aws_access_key_id=aws_access_key_id,
+                    aws_secret_access_key=aws_secret_access_key)
 messages = list()
 
 
@@ -73,10 +80,6 @@ async def text2script(text: str):
 
         script = completion_response.choices[0].message.content
         script = clean_script(script)
-
-        idea_script = {'idea': text,
-                    'script': script
-        }
 
         return script
     
